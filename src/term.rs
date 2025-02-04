@@ -2,6 +2,8 @@ use std::ops::Mul;
 
 use itertools::EitherOrBoth;
 
+use crate::product::ProductTerms;
+
 use super::join::JoinTerms;
 
 pub trait Variable: Copy + Clone + PartialEq + Eq + Ord {}
@@ -26,6 +28,14 @@ impl<V: Variable> FromIterator<(V, usize)> for Term<V> {
     }
 }
 
+impl<'a, V: Variable> FromIterator<&'a (V, usize)> for Term<V> {
+    fn from_iter<T: IntoIterator<Item = &'a (V, usize)>>(iter: T) -> Self {
+        Self {
+            exps: iter.into_iter().cloned().collect(),
+        }
+    }
+}
+
 impl<V: Variable> Degree for Term<V> {
     fn deg(&self) -> usize {
         self.exps.iter().map(|&(_, e)| e).product()
@@ -37,13 +47,9 @@ impl<V: Variable> Mul<Self> for Term<V> {
 
     fn mul(self, rhs: Self) -> Self::Output {
         self.exps
-            .into_iter()
-            .join_terms(rhs.exps.into_iter())
-            .map(|exps| match exps {
-                EitherOrBoth::Both(x, y) => (x.0, x.1 * y.1),
-                EitherOrBoth::Left(x) => x,
-                EitherOrBoth::Right(x) => x,
-            })
+            .iter()
+            .join_terms(rhs.exps.iter())
+            .product_terms()
             .collect()
     }
 }
