@@ -67,3 +67,47 @@ impl<R: Ring, V: Variable> Mul<Self> for Monomial<R, V> {
         }
     }
 }
+/*
+pub trait JoinMonomials<T: Order, R: Ring>: Iterator<Item = (T, R)> + Sized {
+    fn join_monos<I: Iterator<Item = (T, R)>>(self, iter: I) -> JoinMonomialsIter<Self, I, T, R> {
+        JoinMonomialsIter {
+            left: self.peekable(),
+            right: iter.peekable(),
+        }
+    }
+}
+
+pub struct JoinMonomialsIter<
+    I: Iterator<Item = (T, R)>,
+    J: Iterator<Item = (T, R)>,
+    T: Order,
+    R: Ring,
+> {
+    left: Peekable<I>,
+    right: Peekable<J>,
+}
+
+impl<I: Iterator<Item = (T, R)>, J: Iterator<Item = (T, R)>, T: Order, R: Ring> Iterator
+    for JoinMonomialsIter<I, J, T, R>
+{
+    type Item = EitherOrBoth<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.left.peek(), self.right.peek()) {
+            (None, None) => None,
+            (None, Some(_)) => Some(EitherOrBoth::Right(self.right.next().unwrap())),
+            (Some(_), None) => Some(EitherOrBoth::Left(self.left.next().unwrap())),
+            (Some(l), Some(r)) => match l.cmp(r) {
+                Ordering::Less => Some(EitherOrBoth::Left(self.left.next().unwrap())),
+                Ordering::Equal => Some(EitherOrBoth::Both(
+                    self.left.next().unwrap(),
+                    self.right.next().unwrap(),
+                )),
+                Ordering::Greater => Some(EitherOrBoth::Right(self.right.next().unwrap())),
+            },
+        }
+    }
+}
+
+impl<I: Iterator<Item = (T, R)>, T: Order, R: Ring> JoinMonomials<T, R> for I {}
+ */
