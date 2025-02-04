@@ -242,6 +242,7 @@ impl<const N: usize, T> Finite<N> for Z<N, T> where
 {
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

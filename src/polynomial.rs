@@ -1,30 +1,43 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::collections::BTreeMap;
 
-use crate::monomial::Monomial;
+use crate::order::{Lex, Order};
 
 use super::term::{Degree, Term, Variable};
 
 use super::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Polynomial<R: Ring, V: Variable> {
-    monomials: Vec<(R, Term<V>)>,
+pub struct Polynomial<R: Ring, V: Variable, O: Order<Var = V> = Lex<V>> {
+    monomials: BTreeMap<O, R>,
 }
 
-impl<R: Ring, V: Variable> Degree for Polynomial<R, V> {
+impl<R: Ring, V: Variable, O: Order<Var = V>> Degree for Polynomial<R, V, O> {
     fn deg(&self) -> usize {
         self.monomials
             .iter()
-            .map(|(_, term)| term.deg())
+            .map(|(term, _)| term.deg())
             .max()
             .unwrap_or(0)
     }
 }
 
 pub trait HeadMonomial<R: Ring, V: Variable> {
-    fn head_coeff(&self) -> &R;
-    fn head_term(&self) -> &Term<V>;
-    fn head_monomial(&self) -> Monomial<R, V>;
+    fn head_coeff(&self) -> R;
+    fn head_term(&self) -> Term<V>;
+}
+
+impl<R: Ring, V: Variable, O: Order<Var = V>> HeadMonomial<R, V> for Polynomial<R, V, O> {
+    fn head_coeff(&self) -> R {
+        self.monomials
+            .first_key_value()
+            .map_or(R::zero(), |(_, &coeff)| coeff)
+    }
+
+    fn head_term(&self) -> Term<V> {
+        self.monomials
+            .first_key_value()
+            .map_or(Default::default(), |(term, _)| (**term).clone())
+    }
 }
 
 /*

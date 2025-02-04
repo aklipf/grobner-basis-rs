@@ -16,7 +16,15 @@ pub struct Term<V: Variable>
 where
     (V, usize): Ord,
 {
-    exps: Vec<(V, usize)>,
+    pub exps: Vec<(V, usize)>,
+}
+
+impl<V: Variable> Default for Term<V> {
+    fn default() -> Self {
+        Self {
+            exps: Default::default(),
+        }
+    }
 }
 
 impl<V: Variable> FromIterator<(V, usize)> for Term<V> {
@@ -42,7 +50,11 @@ impl<'a, V: Variable> FromIterator<&'a (V, usize)> for Term<V> {
 impl<V: Variable> Display for Term<V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for &(var, exp) in self.exps.iter() {
-            write!(f, "{}^{}", var, exp)?;
+            if exp > 1 {
+                write!(f, "{}^{}", var, exp)?;
+            } else {
+                write!(f, "{}", var)?;
+            }
         }
         write!(f, "")
     }
