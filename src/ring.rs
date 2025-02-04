@@ -1,6 +1,5 @@
 use std::ops::{Add, Deref, Mul, Neg, Rem, Sub};
 
-use num::Integer;
 use num_traits::{One, Zero};
 
 pub trait Ring:
@@ -15,13 +14,9 @@ pub trait Ring:
 {
 }
 
-pub trait LCM {
-    fn lcm(&self, other: Self) -> Self;
-}
-
 pub trait Finite<const N: usize>: Ring {}
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Z<const N: usize, T>
 where
     T: Rem<T, Output = T>
@@ -37,7 +32,7 @@ where
     value: T,
 }
 
-type Z2 = Z<2, usize>;
+pub type Z2 = Z<2, usize>;
 
 impl<const N: usize, T> Z<N, T>
 where

@@ -1,22 +1,30 @@
 use std::ops::{Add, Div, Mul, Sub};
 
+use crate::monomial::Monomial;
+
 use super::term::{Degree, Term, Variable};
 
 use super::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Polynomial<R: Ring, V: Variable> {
-    monomials: Vec<(Term<V>, R)>,
+    monomials: Vec<(R, Term<V>)>,
 }
 
 impl<R: Ring, V: Variable> Degree for Polynomial<R, V> {
     fn deg(&self) -> usize {
         self.monomials
             .iter()
-            .map(|(term, _)| term.deg())
+            .map(|(_, term)| term.deg())
             .max()
             .unwrap_or(0)
     }
+}
+
+pub trait HeadMonomial<R: Ring, V: Variable> {
+    fn head_coeff(&self) -> &R;
+    fn head_term(&self) -> &Term<V>;
+    fn head_monomial(&self) -> Monomial<R, V>;
 }
 
 /*
