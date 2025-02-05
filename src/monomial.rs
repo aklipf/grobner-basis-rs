@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::ops::{Add, Mul, Rem, Sub};
 
 use num::{One, Zero};
@@ -37,23 +38,14 @@ where
     }
 }
 
-impl<const N: usize, T, V> Mul<Z<N, T>> for Term<V>
-where
-    V: Variable,
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = (Z<N, T>, Self);
+impl<R: Ring, V: Variable> Mul<R> for Term<V> {
+    type Output = Monomial<R, V>;
 
-    fn mul(self, rhs: Z<N, T>) -> Self::Output {
-        (rhs, self)
+    fn mul(self, rhs: R) -> Self::Output {
+        Monomial {
+            coeff: rhs,
+            term: self,
+        }
     }
 }
 

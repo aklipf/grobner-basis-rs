@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::ops::{Add, Deref, Mul, Neg, Rem, Sub};
 
 use num_traits::{One, Zero};
@@ -10,7 +11,26 @@ pub trait Ring:
     + One<Output = Self>
     + Zero<Output = Self>
     + Copy
+    + Debug
+    + PartialEq
+    + Eq
     + Sized
+{
+}
+
+impl<
+        T: Add<Self, Output = Self>
+            + Sub<Output = Self>
+            + Neg<Output = Self>
+            + Mul<Self, Output = Self>
+            + One<Output = Self>
+            + Zero<Output = Self>
+            + Copy
+            + Debug
+            + PartialEq
+            + Eq
+            + Sized,
+    > Ring for T
 {
 }
 
@@ -214,20 +234,6 @@ where
     }
 }
 
-impl<const N: usize, T> Ring for Z<N, T> where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + PartialEq
-        + Default
-        + Copy
-{
-}
-
 impl<const N: usize, T> Finite<N> for Z<N, T> where
     T: Rem<T, Output = T>
         + Mul<T, Output = T>
@@ -237,7 +243,10 @@ impl<const N: usize, T> Finite<N> for Z<N, T> where
         + Zero
         + One
         + PartialEq
+        + Debug
         + Default
+        + PartialEq
+        + Eq
         + Copy
 {
 }

@@ -1,6 +1,10 @@
+use std::borrow::Borrow;
 use std::collections::btree_map::IntoIter;
 use std::collections::BTreeMap;
+use std::fmt::Display;
 use std::ops::{Add, Mul, Sub};
+
+use itertools::Itertools;
 
 use crate::monomial::Monomial;
 use crate::order::{Lex, Order};
@@ -12,7 +16,7 @@ use super::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Polynomial<R: Ring, V: Variable, O: Order<Var = V> = Lex<V>> {
-    monomials: BTreeMap<O, R>,
+    pub(crate) monomials: BTreeMap<O, R>,
 }
 
 impl<R: Ring, V: Variable, O: Order<Var = V>> Degree for Polynomial<R, V, O> {
@@ -44,36 +48,29 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> HeadMonomial<R, V> for Polynomial<
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> FromIterator<Monomial<R, V>> for Polynomial<R, V, O> {
-    fn from_iter<T: IntoIterator<Item = Monomial<R, V>>>(iter: T) -> Self {
-        let mut monomials: BTreeMap<O, R> = Default::default();
-
-        for mono in iter {
-            let term: O = mono.term.into();
-            if let Some(coeff) = monomials.get_mut(&term) {
-                *coeff = *coeff + mono.coeff;
-            } else {
-                monomials.insert(term, mono.coeff);
-            }
-        }
-
-        Polynomial {
-            monomials: monomials,
+impl<R: Ring, V: Variable, O: Order<Var = V>> Default for Polynomial<R, V, O> {
+    fn default() -> Self {
+        Self {
+            monomials: Default::default(),
         }
     }
 }
 
-impl<'a, R: Ring, V: Variable, O: Order<Var = V>> FromIterator<&'a Monomial<R, V>>
+impl<B: Borrow<Monomial<R, V>>, R: Ring, V: Variable, O: Order<Var = V>> FromIterator<B>
     for Polynomial<R, V, O>
 {
-    fn from_iter<T: IntoIterator<Item = &'a Monomial<R, V>>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = B>>(iter: T) -> Self {
         let mut monomials: BTreeMap<O, R> = Default::default();
 
-        for mono in iter {
+        for borrowed in iter {
+            let mono: &Monomial<R, V> = borrowed.borrow();
             let term: O = mono.term.clone().into();
             if let Some(coeff) = monomials.get_mut(&term) {
                 *coeff = *coeff + mono.coeff;
-            } else {
+                if coeff.is_zero() {
+                    monomials.remove(&term);
+                }
+            } else if !mono.coeff.is_zero() {
                 monomials.insert(term, mono.coeff);
             }
         }
@@ -164,14 +161,35 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Sub<Self> for Polynomial<R, V, O> 
     }
 }
 
-pub fn spol<R: Ring, V: Variable, O: Order<Var = V>>(
+pub fn sploy<R: Ring, V: Variable, O: Order<Var = V>>(
     f: &Polynomial<R, V, O>,
     g: &Polynomial<R, V, O>,
 ) -> Polynomial<R, V, O>
 where
-    R: Mul<Term<V>, Output = Monomial<R, V>>,
+    Term<V>: Mul<R, Output = Monomial<R, V>>,
 {
     let m = lcm(&f.head_term(), &g.head_term());
 
-    (g.head_coeff() * (&m / &f.head_term())) * f - (f.head_coeff() * (&m / &g.head_term())) * g
+    (&m / &f.head_term()) * g.head_coeff() * f - ((&m / &g.head_term()) * f.head_coeff()) * g
+}
+
+impl<R: Ring, V: Variable, O: Order<Var = V>> Display for Polynomial<R, V, O>
+where
+    R: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.monomials
+                .iter()
+                .rev()
+                .map(|(term, coeff)| if coeff.is_one() && term.exps.len() > 0 {
+                    format!("{}", **term)
+                } else {
+                    format!("{}{}", coeff, **term)
+                })
+                .join(" + ")
+        )
+    }
 }
