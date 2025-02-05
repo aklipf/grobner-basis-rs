@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::collections::btree_map::IntoIter;
+use std::collections::btree_map::{IntoIter, Iter};
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::ops::{Add, Mul, Sub};
@@ -161,6 +161,58 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Sub<Self> for Polynomial<R, V, O> 
     }
 }
 
+impl<R: Ring, V: Variable, O: Order<Var = V>, T: Borrow<Polynomial<R, V, O>>> Mul<T>
+    for Polynomial<R, V, O>
+{
+    type Output = Polynomial<R, V, O>;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        let right: &Polynomial<R, V, O> = rhs.borrow();
+        let mut monomials: Vec<Monomial<R, V>> = Default::default();
+        for m_left in self.iter() {
+            for m_right in right.iter() {
+                monomials.push(m_right * &m_left);
+            }
+        }
+
+        monomials.into_iter().collect()
+    }
+}
+
+pub struct MonomialRefIter<'a, I: Iterator<Item = (&'a O, &'a R)>, O: Order + 'a, R: Ring + 'a> {
+    iter: I,
+}
+
+impl<'a, I: Iterator<Item = (&'a O, &'a R)>, O: Order, R: Ring> Iterator
+    for MonomialRefIter<'a, I, O, R>
+{
+    type Item = Monomial<R, O::Var>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(term, coeff)| Monomial {
+            coeff: coeff.clone(),
+            term: term.deref().clone(),
+        })
+    }
+}
+
+impl<R: Ring, V: Variable, O: Order<Var = V>> Polynomial<R, V, O> {
+    pub fn div_euclid<T: Borrow<Self>>(
+        &self,
+        rhs: T,
+    ) -> (Polynomial<R, V, O>, Polynomial<R, V, O>) {
+        let div: &Polynomial<R, V, O> = rhs.borrow();
+
+        Default::default()
+    }
+
+    pub fn iter(&self) -> MonomialRefIter<Iter<'_, O, R>, O, R> {
+        MonomialRefIter {
+            iter: self.monomials.iter(),
+        }
+    }
+}
+
 pub fn sploy<R: Ring, V: Variable, O: Order<Var = V>>(
     f: &Polynomial<R, V, O>,
     g: &Polynomial<R, V, O>,
@@ -191,5 +243,44 @@ where
                 })
                 .join(" + ")
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::order::Var;
+
+    use super::*;
+
+    #[test]
+    fn add_polynomial() {
+        let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
+        let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
+        let result: Polynomial<i32, Var> =
+            Polynomial::from_str("2x^2+-2xy+2x^2y^3+y^2+x+x^2y+3").unwrap();
+
+        assert_eq!(f + g, result);
+    }
+
+    #[test]
+    fn sub_polynomial() {
+        let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
+        let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
+        let result: Polynomial<i32, Var> =
+            Polynomial::from_str("-4xy+2x^2y^3+y^2+1+-x+-x^2y").unwrap();
+
+        assert_eq!(f - g, result);
+    }
+
+    #[test]
+    fn mul_polynomial() {
+        let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
+        let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
+        let result: Polynomial<i32, Var> =
+            Polynomial::from_str("2x^4y^4+2x^4y^3+x^4y+x^4+2x^3y^4+2x^3y^3+-3x^3y^2+-2x^3y+x^3+3x^2y^3+-2x^2y^2+-x^2y+3x^2+xy^3+xy^2+-xy+2x+y^2+2").unwrap();
+
+        assert_eq!(f * g, result);
     }
 }

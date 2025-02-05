@@ -4,10 +4,10 @@ use itertools::EitherOrBoth;
 
 use crate::term::Variable;
 
-pub trait AddExponents<V: Variable, T: Borrow<(V, usize)>>:
-    Iterator<Item = EitherOrBoth<T>> + Sized
+pub trait AddExponents<V: Variable, T: Borrow<(V, usize)>, U: Borrow<(V, usize)>>:
+    Iterator<Item = EitherOrBoth<T, U>> + Sized
 {
-    fn add_exponents(self) -> AddExponentsIter<V, Self, T> {
+    fn add_exponents(self) -> AddExponentsIter<V, Self, T, U> {
         AddExponentsIter {
             iter: self,
             variable: Default::default(),
@@ -15,13 +15,22 @@ pub trait AddExponents<V: Variable, T: Borrow<(V, usize)>>:
     }
 }
 
-pub struct AddExponentsIter<V, I: Iterator<Item = EitherOrBoth<T>>, T: Borrow<(V, usize)>> {
+pub struct AddExponentsIter<
+    V,
+    I: Iterator<Item = EitherOrBoth<T, U>>,
+    T: Borrow<(V, usize)>,
+    U: Borrow<(V, usize)>,
+> {
     iter: I,
     variable: PhantomData<V>,
 }
 
-impl<V: Variable, I: Iterator<Item = EitherOrBoth<T>>, T: Borrow<(V, usize)>> Iterator
-    for AddExponentsIter<V, I, T>
+impl<
+        V: Variable,
+        I: Iterator<Item = EitherOrBoth<T, U>>,
+        T: Borrow<(V, usize)>,
+        U: Borrow<(V, usize)>,
+    > Iterator for AddExponentsIter<V, I, T, U>
 {
     type Item = (V, usize);
 
@@ -41,8 +50,12 @@ impl<V: Variable, I: Iterator<Item = EitherOrBoth<T>>, T: Borrow<(V, usize)>> It
     }
 }
 
-impl<T: Iterator<Item = EitherOrBoth<U>>, U: Borrow<(V, usize)>, V: Variable> AddExponents<V, U>
-    for T
+impl<
+        I: Iterator<Item = EitherOrBoth<T, U>>,
+        T: Borrow<(V, usize)>,
+        U: Borrow<(V, usize)>,
+        V: Variable,
+    > AddExponents<V, T, U> for I
 {
 }
 

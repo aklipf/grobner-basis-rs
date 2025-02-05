@@ -42,16 +42,21 @@ where
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let re_parse_mono = Regex::new(r"^\s*(?<coeff>\-?\d+)?\s*(?<term>[\S\s]*)?").unwrap();
+        let re_parse_mono =
+            Regex::new(r"^\s*(?<coeff>(?:\-?\d+)|\-)?\s*(?<term>[\S\s]*)?").unwrap();
 
         if let Some(captured) = re_parse_mono.captures(s) {
             let term: Term<V> = captured
                 .name("term")
                 .map_or(Ok(Default::default()), |x| Term::from_str(x.as_str()))?;
 
+            println!("{:#?}", captured.name("coeff"));
             let coeff = captured
                 .name("coeff")
-                .map_or(Ok(R::one()), |x| x.as_str().parse())
+                .map_or(Ok(R::one()), |x| match x.as_str() {
+                    "-" => Ok(R::one().neg()),
+                    s => s.parse(),
+                })
                 .or(Err("Cannot parse a coefficient"))?;
 
             Ok(Monomial {
@@ -73,7 +78,6 @@ where
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let re_split_mono = Regex::new(r"\s*\+\s*").unwrap();
 
-        //((?<var>[a-z])\^?(?<exp>[0-9]*)\s*)*
         let mut monomials: BTreeMap<O, R> = Default::default();
         for captured in re_split_mono.split(s) {
             let monomial: Monomial<R, V> = Monomial::from_str(captured)?;

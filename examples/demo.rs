@@ -8,4 +8,6 @@ fn main() {
 
     println!("{f}");
     println!("{g}");
+
+    println!("{}", g * f)
 }

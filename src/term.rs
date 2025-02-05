@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul};
 
@@ -90,13 +91,14 @@ impl<V: Variable> Degree for Term<V> {
     }
 }
 
-impl<V: Variable> Mul<Self> for Term<V> {
+impl<V: Variable, B: Borrow<Term<V>>> Mul<B> for Term<V> {
     type Output = Self;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, rhs: B) -> Self::Output {
+        let right: &Term<V> = rhs.borrow();
         self.exps
             .into_iter()
-            .join_terms(rhs.exps.into_iter())
+            .join_terms(right.exps.iter())
             .add_exponents()
             .collect()
     }

@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Rem, Sub};
 
@@ -38,7 +39,7 @@ where
     }
 }
 
-impl<R: Ring, V: Variable> Mul<R> for Term<V> {
+/*impl<R: Ring, V: Variable> Mul<R> for Term<V> {
     type Output = Monomial<R, V>;
 
     fn mul(self, rhs: R) -> Self::Output {
@@ -47,59 +48,16 @@ impl<R: Ring, V: Variable> Mul<R> for Term<V> {
             term: self,
         }
     }
-}
+}*/
 
-impl<R: Ring, V: Variable> Mul<Self> for Monomial<R, V> {
+impl<R: Ring, V: Variable, T: Borrow<Monomial<R, V>>> Mul<T> for Monomial<R, V> {
     type Output = Self;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, rhs: T) -> Self::Output {
+        let right: &Monomial<R, V> = rhs.borrow();
         Monomial {
-            coeff: self.coeff * rhs.coeff,
-            term: self.term * rhs.term,
+            coeff: self.coeff * right.coeff,
+            term: self.term * &right.term,
         }
     }
 }
-/*
-pub trait JoinMonomials<T: Order, R: Ring>: Iterator<Item = (T, R)> + Sized {
-    fn join_monos<I: Iterator<Item = (T, R)>>(self, iter: I) -> JoinMonomialsIter<Self, I, T, R> {
-        JoinMonomialsIter {
-            left: self.peekable(),
-            right: iter.peekable(),
-        }
-    }
-}
-
-pub struct JoinMonomialsIter<
-    I: Iterator<Item = (T, R)>,
-    J: Iterator<Item = (T, R)>,
-    T: Order,
-    R: Ring,
-> {
-    left: Peekable<I>,
-    right: Peekable<J>,
-}
-
-impl<I: Iterator<Item = (T, R)>, J: Iterator<Item = (T, R)>, T: Order, R: Ring> Iterator
-    for JoinMonomialsIter<I, J, T, R>
-{
-    type Item = EitherOrBoth<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match (self.left.peek(), self.right.peek()) {
-            (None, None) => None,
-            (None, Some(_)) => Some(EitherOrBoth::Right(self.right.next().unwrap())),
-            (Some(_), None) => Some(EitherOrBoth::Left(self.left.next().unwrap())),
-            (Some(l), Some(r)) => match l.cmp(r) {
-                Ordering::Less => Some(EitherOrBoth::Left(self.left.next().unwrap())),
-                Ordering::Equal => Some(EitherOrBoth::Both(
-                    self.left.next().unwrap(),
-                    self.right.next().unwrap(),
-                )),
-                Ordering::Greater => Some(EitherOrBoth::Right(self.right.next().unwrap())),
-            },
-        }
-    }
-}
-
-impl<I: Iterator<Item = (T, R)>, T: Order, R: Ring> JoinMonomials<T, R> for I {}
- */
