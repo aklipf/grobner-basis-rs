@@ -39,7 +39,7 @@ where
     }
 }
 
-/*impl<R: Ring, V: Variable> Mul<R> for Term<V> {
+impl<R: Ring, V: Variable> Mul<R> for Term<V> {
     type Output = Monomial<R, V>;
 
     fn mul(self, rhs: R) -> Self::Output {
@@ -48,7 +48,18 @@ where
             term: self,
         }
     }
-}*/
+}
+
+impl<'a, R: Ring, V: Variable> Mul<R> for &'a Term<V> {
+    type Output = Monomial<R, V>;
+
+    fn mul(self, rhs: R) -> Self::Output {
+        Monomial {
+            coeff: rhs,
+            term: self.clone(),
+        }
+    }
+}
 
 impl<R: Ring, V: Variable, T: Borrow<Monomial<R, V>>> Mul<T> for Monomial<R, V> {
     type Output = Self;

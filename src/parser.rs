@@ -50,7 +50,6 @@ where
                 .name("term")
                 .map_or(Ok(Default::default()), |x| Term::from_str(x.as_str()))?;
 
-            println!("{:#?}", captured.name("coeff"));
             let coeff = captured
                 .name("coeff")
                 .map_or(Ok(R::one()), |x| match x.as_str() {

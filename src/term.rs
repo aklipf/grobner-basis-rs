@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul};
 
@@ -91,21 +90,32 @@ impl<V: Variable> Degree for Term<V> {
     }
 }
 
-impl<V: Variable, B: Borrow<Term<V>>> Mul<B> for Term<V> {
+impl<V: Variable> Mul<Term<V>> for Term<V> {
     type Output = Self;
 
-    fn mul(self, rhs: B) -> Self::Output {
-        let right: &Term<V> = rhs.borrow();
+    fn mul(self, rhs: Term<V>) -> Self::Output {
         self.exps
             .into_iter()
-            .join_terms(right.exps.iter())
+            .join_terms(rhs.exps.iter())
+            .add_exponents()
+            .collect()
+    }
+}
+
+impl<'a, V: Variable> Mul<&'a Term<V>> for Term<V> {
+    type Output = Self;
+
+    fn mul(self, rhs: &'a Term<V>) -> Self::Output {
+        self.exps
+            .into_iter()
+            .join_terms(rhs.exps.iter())
             .add_exponents()
             .collect()
     }
 }
 
 impl<V: Variable> Div<Self> for Term<V> {
-    type Output = Self;
+    type Output = Result<Self, &'static str>;
 
     fn div(self, rhs: Self) -> Self::Output {
         self.exps
@@ -113,7 +123,7 @@ impl<V: Variable> Div<Self> for Term<V> {
             .join_terms(rhs.exps.into_iter())
             .sub_exponents()
             .collect::<Result<Term<V>, String>>()
-            .expect("Division error")
+            .or(Err("not a divisor"))
     }
 }
 
