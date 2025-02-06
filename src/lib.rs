@@ -1,9 +1,11 @@
 pub mod exponent;
+pub mod fmt;
 pub mod join;
 pub mod monomial;
 pub mod ops;
 pub mod order;
 pub mod parser;
+pub mod poly_iter;
 pub mod polynomial;
 pub mod ring;
 pub mod term;

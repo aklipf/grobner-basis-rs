@@ -1,11 +1,5 @@
-use std::borrow::Borrow;
-use std::collections::btree_map::{IntoIter, Iter};
 use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::ops::{Add, Deref, Div, Mul, Rem, Sub};
-use std::sync::Once;
-
-use itertools::Itertools;
+use std::ops::{Div, Mul, Rem};
 
 use crate::monomial::Monomial;
 use crate::order::{Lex, Order, OrderedTerm};
@@ -66,60 +60,6 @@ impl<R: Ring, V: Variable, O: Order> Default for Polynomial<R, V, O> {
     }
 }
 
-impl<B: Borrow<Monomial<R, V>>, R: Ring, V: Variable, O: Order> FromIterator<B>
-    for Polynomial<R, V, O>
-{
-    fn from_iter<T: IntoIterator<Item = B>>(iter: T) -> Self {
-        let mut monomials: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
-
-        for borrowed in iter {
-            let mono: &Monomial<R, V> = borrowed.borrow();
-            let term: OrderedTerm<V, O> = mono.term.clone().into();
-            if let Some(coeff) = monomials.get_mut(&term) {
-                *coeff = *coeff + mono.coeff;
-                if coeff.is_zero() {
-                    monomials.remove(&term);
-                }
-            } else if !mono.coeff.is_zero() {
-                monomials.insert(term, mono.coeff);
-            }
-        }
-
-        Polynomial {
-            monomials: monomials,
-        }
-    }
-}
-
-impl<R: Ring, V: Variable, O: Order> IntoIterator for Polynomial<R, V, O> {
-    type Item = Monomial<R, V>;
-
-    type IntoIter = MonomialIter<IntoIter<OrderedTerm<V, O>, R>, R, V, O>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        MonomialIter {
-            iter: self.monomials.into_iter(),
-        }
-    }
-}
-
-pub struct MonomialIter<I: Iterator<Item = (OrderedTerm<V, O>, R)>, R: Ring, V: Variable, O: Order>
-{
-    iter: I,
-}
-
-impl<I: Iterator<Item = (OrderedTerm<V, O>, R)>, R: Ring, V: Variable, O: Order> Iterator
-    for MonomialIter<I, R, V, O>
-{
-    type Item = Monomial<R, V>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(term, coeff)| Monomial {
-            coeff: coeff,
-            term: (*term).clone(),
-        })
-    }
-}
 #[inline]
 pub(crate) fn mul_any_poly<'a, R: Ring, V: Variable, O: Order, T>(
     left: &'a T,
@@ -201,91 +141,6 @@ where
 
     (rem_monomial.into_iter().collect(), f)
 }
-pub struct MonomialRefIter<
-    'a,
-    I: Iterator<Item = (&'a OrderedTerm<V, O>, &'a R)>,
-    R: Ring + 'a,
-    V: Variable + 'a,
-    O: Order + 'a,
-> {
-    iter: I,
-}
-
-impl<
-        'a,
-        I: Iterator<Item = (&'a OrderedTerm<V, O>, &'a R)>,
-        R: Ring + 'a,
-        V: Variable + 'a,
-        O: Order + 'a,
-    > Iterator for MonomialRefIter<'a, I, R, V, O>
-{
-    type Item = Monomial<R, V>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(term, coeff)| Monomial {
-            coeff: coeff.clone(),
-            term: term.deref().clone(),
-        })
-    }
-}
-
-impl<R: Ring, V: Variable, O: Order> Polynomial<R, V, O> {
-    pub fn div_euclid<T: Borrow<Self>>(&self, rhs: &T) -> (Polynomial<R, V, O>, Polynomial<R, V, O>)
-    where
-        R: Rem<R, Output = R> + Div<R, Output = R>,
-        Term<V>: Mul<R, Output = Monomial<R, V>>,
-    {
-        let mut f: Polynomial<R, V, O> = self.clone();
-        let div: &Polynomial<R, V, O> = rhs.borrow();
-
-        let mut rem_monomial: Vec<Monomial<R, V>> = Default::default();
-
-        loop {
-            if (f.lead_coeff() % div.lead_coeff()) == R::zero() {
-                let c = f.lead_coeff() / div.lead_coeff();
-                if let Some(m) = f.lead_term() / div.lead_term() {
-                    rem_monomial.push(&m * c);
-                    f = f - (div * (m * c));
-                    continue;
-                }
-            }
-            break;
-        }
-
-        (rem_monomial.into_iter().collect(), f)
-    }
-
-    pub fn iter(&self) -> MonomialRefIter<Iter<'_, OrderedTerm<V, O>, R>, R, V, O> {
-        MonomialRefIter {
-            iter: self.monomials.iter(),
-        }
-    }
-}
-
-impl<R: Ring, V: Variable, O: Order> Display for Polynomial<R, V, O>
-where
-    R: Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.monomials.is_empty() {
-            write!(f, "{}", R::zero())
-        } else {
-            write!(
-                f,
-                "{}",
-                self.monomials
-                    .iter()
-                    .rev()
-                    .map(|(term, coeff)| if coeff.is_one() && term.exps.len() > 0 {
-                        format!("{}", **term)
-                    } else {
-                        format!("{}{}", coeff, **term)
-                    })
-                    .join(" + ")
-            )
-        }
-    }
-}
 
 pub fn sploy<R: Ring, V: Variable, O: Order>(
     f: &Polynomial<R, V, O>,
@@ -304,8 +159,7 @@ pub fn buchberger<R: Ring, V: Variable, O: Order>(
     polys: &Vec<Polynomial<R, V, O>>,
 ) -> Vec<Polynomial<R, V, O>>
 where
-    R: Rem<R, Output = R> + Div<R, Output = R> + Display,
-    Term<V>: Mul<R, Output = Monomial<R, V>>,
+    R: Rem<R, Output = R> + Div<R, Output = R>,
 {
     let mut g = polys.clone();
 
@@ -318,7 +172,7 @@ where
                 }
                 let mut s_ij = sploy(g_i, g_j);
                 for g_k in g.iter() {
-                    (_, s_ij) = s_ij.div_euclid(&g_k);
+                    (_, s_ij) = s_ij / g_k;
                 }
                 if !s_ij.monomials.is_empty() {
                     next_ideal = Some(s_ij);
@@ -347,7 +201,7 @@ fn reduced<R: Ring, V: Variable, O: Order>(
     polys: Vec<Polynomial<R, V, O>>,
 ) -> Vec<Polynomial<R, V, O>>
 where
-    R: Rem<R, Output = R> + Div<R, Output = R> + Display,
+    R: Rem<R, Output = R> + Div<R, Output = R>,
     Term<V>: Mul<R, Output = Monomial<R, V>>,
 {
     //polys.sort_by(|left, right| left.lead_term().cmp(right.lead_term()));
@@ -395,7 +249,7 @@ mod tests {
         let f: Polynomial<i32, Var, Lex> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
         let g: Polynomial<i32, Var, Lex> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
 
-        let (q, r) = f.div_euclid(&g);
+        let (q, r) = &f / &g;
 
         assert!(Lex::cmp(&r.lead_term().into(), &g.lead_term().into()) == Ordering::Less);
         assert_eq!(f, q * g + r);

@@ -13,7 +13,7 @@ fn main() {
     println!("f={f}");
     println!("g={g}");
 
-    let (q, r) = f.div_euclid(&g);
+    let (q, r) = f / &g;
 
     println!("{}", q.clone() * g.clone() + r.clone());
 
