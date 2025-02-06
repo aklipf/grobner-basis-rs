@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display};
-use std::ops::{Div, Mul};
 
 use crate::variable::Variable;
 
@@ -115,68 +114,4 @@ pub fn lcm<V: Variable>(left: &Term<V>, right: &Term<V>) -> Term<V> {
         .join_terms(right.exps.iter())
         .max_exponents()
         .collect()
-}
-
-// move ops after this
-
-impl<V: Variable> Mul<Term<V>> for Term<V> {
-    type Output = Self;
-
-    fn mul(self, rhs: Term<V>) -> Self::Output {
-        self.exps
-            .into_iter()
-            .join_terms(rhs.exps.iter())
-            .add_exponents()
-            .collect()
-    }
-}
-
-impl<'a, V: Variable> Mul<&'a Term<V>> for Term<V> {
-    type Output = Self;
-
-    fn mul(self, rhs: &'a Term<V>) -> Self::Output {
-        self.exps
-            .into_iter()
-            .join_terms(rhs.exps.iter())
-            .add_exponents()
-            .collect()
-    }
-}
-
-impl<V: Variable> Div<Self> for Term<V> {
-    type Output = Result<Self, &'static str>;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        self.exps
-            .into_iter()
-            .join_terms(rhs.exps.into_iter())
-            .sub_exponents()
-            .collect::<Result<Term<V>, String>>()
-            .or(Err("not a divisor"))
-    }
-}
-
-impl<'a, 'b, V: Variable> Mul<&'b Term<V>> for &'a Term<V> {
-    type Output = Term<V>;
-
-    fn mul(self, rhs: &'b Term<V>) -> Term<V> {
-        self.exps
-            .iter()
-            .join_terms(rhs.exps.iter())
-            .add_exponents()
-            .collect()
-    }
-}
-
-impl<'a, 'b, V: Variable> Div<&'b Term<V>> for &'a Term<V> {
-    type Output = Term<V>;
-
-    fn div(self, rhs: &'b Term<V>) -> Term<V> {
-        self.exps
-            .iter()
-            .join_terms(rhs.exps.iter())
-            .sub_exponents()
-            .collect::<Result<Term<V>, String>>()
-            .expect("Division error")
-    }
 }

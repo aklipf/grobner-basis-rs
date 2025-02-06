@@ -249,7 +249,7 @@ impl<R: Ring, V: Variable, O: Order> Polynomial<R, V, O> {
         loop {
             if (f.lead_coeff() % div.lead_coeff()) == R::zero() {
                 let c = f.lead_coeff() / div.lead_coeff();
-                if let Ok(m) = f.lead_term() / div.lead_term() {
+                if let Some(m) = f.lead_term() / div.lead_term() {
                     rem_monomial.push(&m * c);
                     f = f - (div * (m * c));
                     continue;
@@ -302,7 +302,8 @@ where
 {
     let m = lcm(&f.lead_term(), &g.lead_term());
 
-    (&m / &f.lead_term()) * g.lead_coeff() * f - ((&m / &g.lead_term()) * f.lead_coeff()) * g
+    (&m / &f.lead_term()).unwrap() * g.lead_coeff() * f
+        - ((&m / &g.lead_term()).unwrap() * f.lead_coeff()) * g
 }
 
 pub fn buchberger<R: Ring, V: Variable, O: Order>(
