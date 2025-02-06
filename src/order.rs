@@ -78,21 +78,62 @@ impl Display for Var {
 }
 
 impl Variable for Var {}
+
+pub trait Order {
+    fn cmp<V: Variable>(a: &Term<V>, b: &Term<V>) -> Ordering;
+}
+
+#[macro_export]
+macro_rules! order_from_terms {
+    ( $order_name:tt , $term_order:tt ) => {
+        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        pub struct $order_name {}
+
+        impl Order for $order_name {
+            fn cmp<V: Variable>(left: &Term<V>, right: &Term<V>) -> std::cmp::Ordering {
+                left.exps
+                    .iter()
+                    .join_terms(right.exps.iter())
+                    .find_map($term_order)
+                    .unwrap_or(Ordering::Equal)
+            }
+        }
+    };
+}
+
+fn lex_variables<V: Variable>(terms: EitherOrBoth<&(V, usize)>) -> Option<Ordering> {
+    match terms {
+        EitherOrBoth::Both(&(_, left), &(_, right)) => {
+            if left < right {
+                Some(Ordering::Less)
+            } else if left > right {
+                Some(Ordering::Greater)
+            } else {
+                None
+            }
+        }
+        EitherOrBoth::Left(_) => Some(Ordering::Greater),
+        EitherOrBoth::Right(_) => Some(Ordering::Less),
+    }
+}
+
+order_from_terms!(Lex, lex_variables);
+
 pub trait OrderCmp<V: Variable> {
     fn cmp_order(terms: EitherOrBoth<&(V, usize)>) -> Option<Ordering>;
 }
-pub trait Order:
+pub trait OldOrder:
     Clone + Deref<Target = Term<Self::Var>> + From<Term<Self::Var>> + Ord + OrderCmp<Self::Var>
 {
     type Var: Variable;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OrderedTerm<V: Variable> {
+pub struct OrderedTermOld<V: Variable> {
     terms: Term<V>,
 }
 
-impl<V: Variable> Deref for OrderedTerm<V> {
+impl<V: Variable> Deref for OrderedTermOld<V> {
     type Target = Term<V>;
 
     fn deref(&self) -> &Self::Target {
@@ -100,13 +141,13 @@ impl<V: Variable> Deref for OrderedTerm<V> {
     }
 }
 
-impl<V: Variable> From<Term<V>> for OrderedTerm<V> {
+impl<V: Variable> From<Term<V>> for OrderedTermOld<V> {
     fn from(value: Term<V>) -> Self {
-        OrderedTerm { terms: value }
+        OrderedTermOld { terms: value }
     }
 }
 
-impl<V: Variable> Ord for OrderedTerm<V>
+impl<V: Variable> Ord for OrderedTermOld<V>
 where
     Self: OrderCmp<V>,
 {
@@ -120,7 +161,7 @@ where
     }
 }
 
-impl<V: Variable> PartialOrd for OrderedTerm<V>
+impl<V: Variable> PartialOrd for OrderedTermOld<V>
 where
     Self: OrderCmp<V>,
 {
@@ -129,13 +170,13 @@ where
     }
 }
 
-pub type Lex<V> = OrderedTerm<V>;
+pub type LexOld<V> = OrderedTermOld<V>;
 
-impl<V: Variable> Order for Lex<V> {
+impl<V: Variable> OldOrder for LexOld<V> {
     type Var = V;
 }
 
-impl<V: Variable> OrderCmp<V> for Lex<V> {
+impl<V: Variable> OrderCmp<V> for LexOld<V> {
     fn cmp_order(terms: EitherOrBoth<&(V, usize)>) -> Option<Ordering> {
         match terms {
             EitherOrBoth::Both(&(_, left), &(_, right)) => {
@@ -155,31 +196,24 @@ impl<V: Variable> OrderCmp<V> for Lex<V> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
+    fn take_order<O: Order>() {}
+
     #[test]
-    fn lex_order() {
-        let mut terms: BTreeSet<Lex<Var>> = Default::default();
+    fn test_lex_order() {
+        take_order::<Lex>();
+
         let a2 = Term::from_str("a^2").unwrap();
         let ab = Term::from_str("ab").unwrap();
         let a = Term::from_str("a").unwrap();
         let b2 = Term::from_str("b^2").unwrap();
         let b = Term::from_str("b").unwrap();
-        terms.insert(a2.clone().into());
-        terms.insert(ab.clone().into());
-        terms.insert(a.clone().into());
-        terms.insert(b2.clone().into());
-        terms.insert(b.clone().into());
 
-        assert_eq!(
-            terms
-                .into_iter()
-                .rev()
-                .map(|t| t.terms)
-                .collect::<Vec<Term<Var>>>(),
-            vec![a2, ab, a, b2, b]
-        );
+        let mut terms: Vec<Term<Var>> =
+            vec![a.clone(), b2.clone(), a2.clone(), b.clone(), ab.clone()];
+        terms.sort_by(Lex::cmp);
+
+        assert_eq!(terms, vec![b, b2, a, ab, a2]);
     }
 }

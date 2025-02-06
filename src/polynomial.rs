@@ -1,25 +1,87 @@
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::collections::btree_map::{IntoIter, Iter};
 use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::marker::PhantomData;
+use std::ops::{Add, Deref, Div, Mul, Rem, Sub};
 
 use itertools::Itertools;
 
 use crate::monomial::Monomial;
-use crate::order::{Lex, Order};
+use crate::order::{Lex, Order, Var};
 use crate::term::lcm;
 
 use super::term::{Degree, Term, Variable};
 
 use super::ring::Ring;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Polynomial<R: Ring, V: Variable, O: Order<Var = V> = Lex<V>> {
-    pub(crate) monomials: BTreeMap<O, R>,
+#[derive(Debug)]
+pub struct OrderedTerm<V: Variable, O: Order> {
+    terms: Term<V>,
+    cmp_fn: PhantomData<O>,
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Degree for Polynomial<R, V, O> {
+impl<V: Variable, O: Order> Clone for OrderedTerm<V, O> {
+    fn clone(&self) -> Self {
+        Self {
+            terms: self.terms.clone(),
+            cmp_fn: PhantomData,
+        }
+    }
+}
+
+impl<V: Variable, O: Order> Deref for OrderedTerm<V, O> {
+    type Target = Term<V>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.terms
+    }
+}
+
+impl<V: Variable, O: Order> From<Term<V>> for OrderedTerm<V, O> {
+    fn from(value: Term<V>) -> Self {
+        OrderedTerm {
+            terms: value,
+            cmp_fn: PhantomData,
+        }
+    }
+}
+
+impl<V: Variable, O: Order> Ord for OrderedTerm<V, O> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        O::cmp(&self.terms, &other.terms)
+    }
+}
+
+impl<V: Variable, O: Order> PartialOrd for OrderedTerm<V, O> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<V: Variable, O: Order> PartialEq for OrderedTerm<V, O> {
+    fn eq(&self, other: &Self) -> bool {
+        O::cmp(&self.terms, &other.terms) == Ordering::Equal
+    }
+}
+
+impl<V: Variable, O: Order> Eq for OrderedTerm<V, O> {}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Polynomial<R: Ring = i32, V: Variable = Var, O: Order = Lex> {
+    pub(crate) monomials: BTreeMap<OrderedTerm<V, O>, R>,
+}
+
+impl<R: Ring, V: Variable, O: Order> Clone for Polynomial<R, V, O> {
+    fn clone(&self) -> Self {
+        Self {
+            monomials: self.monomials.clone(),
+        }
+    }
+}
+
+impl<R: Ring, V: Variable, O: Order> Degree for Polynomial<R, V, O> {
     fn deg(&self) -> usize {
         self.monomials
             .iter()
@@ -34,7 +96,7 @@ pub trait HeadMonomial<R: Ring, V: Variable> {
     fn lead_term(&self) -> Term<V>;
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> HeadMonomial<R, V> for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> HeadMonomial<R, V> for Polynomial<R, V, O> {
     fn lead_coeff(&self) -> R {
         self.monomials
             .last_key_value()
@@ -48,7 +110,7 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> HeadMonomial<R, V> for Polynomial<
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Default for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> Default for Polynomial<R, V, O> {
     fn default() -> Self {
         Self {
             monomials: Default::default(),
@@ -56,15 +118,15 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Default for Polynomial<R, V, O> {
     }
 }
 
-impl<B: Borrow<Monomial<R, V>>, R: Ring, V: Variable, O: Order<Var = V>> FromIterator<B>
+impl<B: Borrow<Monomial<R, V>>, R: Ring, V: Variable, O: Order> FromIterator<B>
     for Polynomial<R, V, O>
 {
     fn from_iter<T: IntoIterator<Item = B>>(iter: T) -> Self {
-        let mut monomials: BTreeMap<O, R> = Default::default();
+        let mut monomials: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
 
         for borrowed in iter {
             let mono: &Monomial<R, V> = borrowed.borrow();
-            let term: O = mono.term.clone().into();
+            let term: OrderedTerm<V, O> = mono.term.clone().into();
             if let Some(coeff) = monomials.get_mut(&term) {
                 *coeff = *coeff + mono.coeff;
                 if coeff.is_zero() {
@@ -81,10 +143,10 @@ impl<B: Borrow<Monomial<R, V>>, R: Ring, V: Variable, O: Order<Var = V>> FromIte
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> IntoIterator for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> IntoIterator for Polynomial<R, V, O> {
     type Item = Monomial<R, V>;
 
-    type IntoIter = MonomialIter<IntoIter<O, R>, O, R>;
+    type IntoIter = MonomialIter<IntoIter<OrderedTerm<V, O>, R>, R, V, O>;
 
     fn into_iter(self) -> Self::IntoIter {
         MonomialIter {
@@ -93,12 +155,15 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> IntoIterator for Polynomial<R, V, 
     }
 }
 
-pub struct MonomialIter<I: Iterator<Item = (O, R)>, O: Order, R: Ring> {
+pub struct MonomialIter<I: Iterator<Item = (OrderedTerm<V, O>, R)>, R: Ring, V: Variable, O: Order>
+{
     iter: I,
 }
 
-impl<I: Iterator<Item = (O, R)>, O: Order, R: Ring> Iterator for MonomialIter<I, O, R> {
-    type Item = Monomial<R, O::Var>;
+impl<I: Iterator<Item = (OrderedTerm<V, O>, R)>, R: Ring, V: Variable, O: Order> Iterator
+    for MonomialIter<I, R, V, O>
+{
+    type Item = Monomial<R, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(term, coeff)| Monomial {
@@ -108,11 +173,11 @@ impl<I: Iterator<Item = (O, R)>, O: Order, R: Ring> Iterator for MonomialIter<I,
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Mul<Monomial<R, V>> for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> Mul<Monomial<R, V>> for Polynomial<R, V, O> {
     type Output = Self;
 
     fn mul(self, rhs: Monomial<R, V>) -> Self::Output {
-        let mut monomial: BTreeMap<O, R> = Default::default();
+        let mut monomial: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
         for x in self.into_iter() {
             let result = x.mul(rhs.clone());
             monomial.insert(result.term.into(), result.coeff);
@@ -124,11 +189,11 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Mul<Monomial<R, V>> for Polynomial
     }
 }
 
-impl<'a, R: Ring, V: Variable, O: Order<Var = V>> Mul<Monomial<R, V>> for &'a Polynomial<R, V, O> {
+impl<'a, R: Ring, V: Variable, O: Order> Mul<Monomial<R, V>> for &'a Polynomial<R, V, O> {
     type Output = Polynomial<R, V, O>;
 
     fn mul(self, rhs: Monomial<R, V>) -> Self::Output {
-        let mut monomial: BTreeMap<O, R> = Default::default();
+        let mut monomial: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
         for x in self.iter() {
             let result = x.mul(rhs.clone());
             monomial.insert(result.term.into(), result.coeff);
@@ -140,12 +205,12 @@ impl<'a, R: Ring, V: Variable, O: Order<Var = V>> Mul<Monomial<R, V>> for &'a Po
     }
 }
 
-impl<'a, R: Ring, V: Variable, O: Order<Var = V>> Mul<&'a Polynomial<R, V, O>> for Monomial<R, V> {
+impl<'a, R: Ring, V: Variable, O: Order> Mul<&'a Polynomial<R, V, O>> for Monomial<R, V> {
     type Output = Polynomial<R, V, O>;
 
     fn mul(self, rhs: &'a Polynomial<R, V, O>) -> Self::Output {
-        let mut monomial: BTreeMap<O, R> = Default::default();
-        for x in rhs.clone().into_iter() {
+        let mut monomial: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
+        for x in rhs.iter() {
             let result = x.mul(self.clone());
             monomial.insert(result.term.into(), result.coeff);
         }
@@ -156,7 +221,7 @@ impl<'a, R: Ring, V: Variable, O: Order<Var = V>> Mul<&'a Polynomial<R, V, O>> f
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Add<Self> for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> Add<Self> for Polynomial<R, V, O> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -164,7 +229,7 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Add<Self> for Polynomial<R, V, O> 
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Sub<Self> for Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> Sub<Self> for Polynomial<R, V, O> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -177,7 +242,7 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Sub<Self> for Polynomial<R, V, O> 
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>, T: Borrow<Polynomial<R, V, O>>> Mul<T>
+impl<R: Ring, V: Variable, O: Order, T: Borrow<Polynomial<R, V, O>>> Mul<T>
     for Polynomial<R, V, O>
 {
     type Output = Polynomial<R, V, O>;
@@ -195,14 +260,25 @@ impl<R: Ring, V: Variable, O: Order<Var = V>, T: Borrow<Polynomial<R, V, O>>> Mu
     }
 }
 
-pub struct MonomialRefIter<'a, I: Iterator<Item = (&'a O, &'a R)>, O: Order + 'a, R: Ring + 'a> {
+pub struct MonomialRefIter<
+    'a,
+    I: Iterator<Item = (&'a OrderedTerm<V, O>, &'a R)>,
+    R: Ring + 'a,
+    V: Variable + 'a,
+    O: Order + 'a,
+> {
     iter: I,
 }
 
-impl<'a, I: Iterator<Item = (&'a O, &'a R)>, O: Order, R: Ring> Iterator
-    for MonomialRefIter<'a, I, O, R>
+impl<
+        'a,
+        I: Iterator<Item = (&'a OrderedTerm<V, O>, &'a R)>,
+        R: Ring + 'a,
+        V: Variable + 'a,
+        O: Order + 'a,
+    > Iterator for MonomialRefIter<'a, I, R, V, O>
 {
-    type Item = Monomial<R, O::Var>;
+    type Item = Monomial<R, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(term, coeff)| Monomial {
@@ -212,13 +288,13 @@ impl<'a, I: Iterator<Item = (&'a O, &'a R)>, O: Order, R: Ring> Iterator
     }
 }
 
-impl<R: Ring, V: Variable, O: Order<Var = V>> Polynomial<R, V, O> {
+impl<R: Ring, V: Variable, O: Order> Polynomial<R, V, O> {
     pub fn div_euclid<T: Borrow<Self>>(&self, rhs: &T) -> (Polynomial<R, V, O>, Polynomial<R, V, O>)
     where
-        R: Rem<R, Output = R> + Div<R, Output = R> + Display,
+        R: Rem<R, Output = R> + Div<R, Output = R>,
         Term<V>: Mul<R, Output = Monomial<R, V>>,
     {
-        let mut f = self.clone();
+        let mut f: Polynomial<R, V, O> = self.clone();
         let div: &Polynomial<R, V, O> = rhs.borrow();
 
         let mut rem_monomial: Vec<Monomial<R, V>> = Default::default();
@@ -238,26 +314,14 @@ impl<R: Ring, V: Variable, O: Order<Var = V>> Polynomial<R, V, O> {
         (rem_monomial.into_iter().collect(), f)
     }
 
-    pub fn iter(&self) -> MonomialRefIter<Iter<'_, O, R>, O, R> {
+    pub fn iter(&self) -> MonomialRefIter<Iter<'_, OrderedTerm<V, O>, R>, R, V, O> {
         MonomialRefIter {
             iter: self.monomials.iter(),
         }
     }
 }
 
-pub fn sploy<R: Ring, V: Variable, O: Order<Var = V>>(
-    f: &Polynomial<R, V, O>,
-    g: &Polynomial<R, V, O>,
-) -> Polynomial<R, V, O>
-where
-    Term<V>: Mul<R, Output = Monomial<R, V>>,
-{
-    let m = lcm(&f.lead_term(), &g.lead_term());
-
-    (&m / &f.lead_term()) * g.lead_coeff() * f - ((&m / &g.lead_term()) * f.lead_coeff()) * g
-}
-
-impl<R: Ring, V: Variable, O: Order<Var = V>> Display for Polynomial<R, V, O>
+impl<R: Ring, V: Variable, O: Order> Display for Polynomial<R, V, O>
 where
     R: Display,
 {
@@ -280,6 +344,72 @@ where
             )
         }
     }
+}
+
+pub fn sploy<R: Ring, V: Variable, O: Order>(
+    f: &Polynomial<R, V, O>,
+    g: &Polynomial<R, V, O>,
+) -> Polynomial<R, V, O>
+where
+    Term<V>: Mul<R, Output = Monomial<R, V>>,
+{
+    let m = lcm(&f.lead_term(), &g.lead_term());
+
+    (&m / &f.lead_term()) * g.lead_coeff() * f - ((&m / &g.lead_term()) * f.lead_coeff()) * g
+}
+
+pub fn buchberger<R: Ring, V: Variable, O: Order>(
+    polys: &Vec<Polynomial<R, V, O>>,
+) -> Vec<Polynomial<R, V, O>>
+where
+    R: Rem<R, Output = R> + Div<R, Output = R> + Display,
+    Term<V>: Mul<R, Output = Monomial<R, V>>,
+{
+    let mut g = polys.clone();
+
+    loop {
+        let mut next_ideal: Option<Polynomial<R, V, O>> = None;
+        for (i, g_i) in g.iter().enumerate() {
+            for (j, g_j) in g.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                let mut s_ij = sploy(g_i, g_j);
+                for g_k in g.iter() {
+                    (_, s_ij) = s_ij.div_euclid(&g_k);
+                }
+                if !s_ij.monomials.is_empty() {
+                    next_ideal = Some(s_ij);
+                }
+
+                if next_ideal.is_some() {
+                    break;
+                }
+            }
+
+            if next_ideal.is_some() {
+                break;
+            }
+        }
+        if let Some(ideal) = next_ideal {
+            g.push(ideal);
+        } else {
+            break;
+        }
+    }
+
+    reduced(g)
+}
+
+fn reduced<R: Ring, V: Variable, O: Order>(
+    polys: Vec<Polynomial<R, V, O>>,
+) -> Vec<Polynomial<R, V, O>>
+where
+    R: Rem<R, Output = R> + Div<R, Output = R> + Display,
+    Term<V>: Mul<R, Output = Monomial<R, V>>,
+{
+    //polys.sort_by(|left, right| left.lead_term().cmp(right.lead_term()));
+    polys
 }
 
 #[cfg(test)]
@@ -322,13 +452,12 @@ mod tests {
 
     #[test]
     fn div_euclid_polynomial() {
-        let f: Polynomial<i32, Var, Lex<Var>> =
-            Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
-        let g: Polynomial<i32, Var, Lex<Var>> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
+        let f: Polynomial<i32, Var, Lex> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
+        let g: Polynomial<i32, Var, Lex> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
 
         let (q, r) = f.div_euclid(&g);
 
-        assert!(Lex::<Var>::cmp(&r.lead_term().into(), &g.lead_term().into()) == Ordering::Less);
+        assert!(Lex::cmp(&r.lead_term().into(), &g.lead_term().into()) == Ordering::Less);
         assert_eq!(f, q * g + r);
     }
 }

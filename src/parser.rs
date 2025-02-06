@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::{
     monomial::Monomial,
     order::Order,
-    polynomial::Polynomial,
+    polynomial::{OrderedTerm, Polynomial},
     ring::Ring,
     term::{Term, Variable},
 };
@@ -68,8 +68,9 @@ where
     }
 }
 
-impl<R: Ring + FromStr, V: Variable, O: Order<Var = V>> FromStr for Polynomial<R, V, O>
+impl<R: Ring, V: Variable, O: Order> FromStr for Polynomial<R, V, O>
 where
+    R: FromStr,
     V: FromStr,
 {
     type Err = String;
@@ -77,7 +78,7 @@ where
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let re_split_mono = Regex::new(r"\s*\+\s*").unwrap();
 
-        let mut monomials: BTreeMap<O, R> = Default::default();
+        let mut monomials: BTreeMap<OrderedTerm<V, O>, R> = Default::default();
         for captured in re_split_mono.split(s) {
             let monomial: Monomial<R, V> = Monomial::from_str(captured)?;
             monomials.insert(monomial.term.into(), monomial.coeff);

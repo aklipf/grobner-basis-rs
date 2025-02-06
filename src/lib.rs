@@ -1,3 +1,5 @@
+#![feature(fn_traits)]
+
 pub mod exponent;
 pub mod join;
 pub mod monomial;
