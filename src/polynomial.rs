@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::default;
 use std::ops::{Div, Mul, Rem};
 
 use num::{One, Zero};
@@ -261,7 +260,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn add_polynomial() {
+    fn test_add_polynomial() {
         let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
         let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
         let result: Polynomial<i32, Var> =
@@ -271,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn sub_polynomial() {
+    fn test_sub_polynomial() {
         let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
         let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
         let result: Polynomial<i32, Var> =
@@ -281,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_polynomial() {
+    fn test_mul_polynomial() {
         let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
         let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
         let result: Polynomial<i32, Var> =
@@ -291,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn div_euclid_polynomial() {
+    fn test_div_polynomial() {
         let f: Polynomial<i32, Var, Lex> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
         let g: Polynomial<i32, Var, Lex> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
 
@@ -299,5 +298,24 @@ mod tests {
 
         assert!(Lex::cmp(&r.lead_term().into(), &g.lead_term().into()) == Ordering::Less);
         assert_eq!(f, q * g + r);
+    }
+
+    #[test]
+    fn test_buchberger() {
+        let input: Vec<Polynomial<i32, Var, Lex>> = vec![
+            Polynomial::from_str("x^2+-y").unwrap(),
+            Polynomial::from_str("x^3+-z").unwrap(),
+        ];
+
+        let grobner_basis = buchberger(&input);
+        assert_eq!(
+            grobner_basis,
+            vec![
+                Polynomial::from_str("x^2+-y").unwrap(),
+                Polynomial::from_str("-xy+z").unwrap(),
+                Polynomial::from_str("-xz+y^2").unwrap(),
+                Polynomial::from_str("-y^3+z^2").unwrap()
+            ]
+        );
     }
 }
