@@ -4,10 +4,11 @@ use regex::Regex;
 
 use crate::{
     monomial::Monomial,
-    order::Order,
-    polynomial::{OrderedTerm, Polynomial},
+    order::{Order, OrderedTerm},
+    polynomial::Polynomial,
     ring::Ring,
-    term::{Term, Variable},
+    term::Term,
+    variable::Variable,
 };
 
 impl<V: Variable> FromStr for Term<V>
@@ -92,7 +93,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::order::Var;
+    use crate::variable::Var;
 
     use super::*;
 

@@ -1,72 +1,19 @@
 use std::borrow::Borrow;
-use std::cmp::Ordering;
 use std::collections::btree_map::{IntoIter, Iter};
 use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::marker::PhantomData;
 use std::ops::{Add, Deref, Div, Mul, Rem, Sub};
 
 use itertools::Itertools;
 
 use crate::monomial::Monomial;
-use crate::order::{Lex, Order, Var};
+use crate::order::{Lex, Order, OrderedTerm};
 use crate::term::lcm;
+use crate::variable::{Var, Variable};
 
-use super::term::{Degree, Term, Variable};
+use super::term::{Degree, Term};
 
 use super::ring::Ring;
-
-#[derive(Debug)]
-pub struct OrderedTerm<V: Variable, O: Order> {
-    terms: Term<V>,
-    cmp_fn: PhantomData<O>,
-}
-
-impl<V: Variable, O: Order> Clone for OrderedTerm<V, O> {
-    fn clone(&self) -> Self {
-        Self {
-            terms: self.terms.clone(),
-            cmp_fn: PhantomData,
-        }
-    }
-}
-
-impl<V: Variable, O: Order> Deref for OrderedTerm<V, O> {
-    type Target = Term<V>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.terms
-    }
-}
-
-impl<V: Variable, O: Order> From<Term<V>> for OrderedTerm<V, O> {
-    fn from(value: Term<V>) -> Self {
-        OrderedTerm {
-            terms: value,
-            cmp_fn: PhantomData,
-        }
-    }
-}
-
-impl<V: Variable, O: Order> Ord for OrderedTerm<V, O> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        O::cmp(&self.terms, &other.terms)
-    }
-}
-
-impl<V: Variable, O: Order> PartialOrd for OrderedTerm<V, O> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<V: Variable, O: Order> PartialEq for OrderedTerm<V, O> {
-    fn eq(&self, other: &Self) -> bool {
-        O::cmp(&self.terms, &other.terms) == Ordering::Equal
-    }
-}
-
-impl<V: Variable, O: Order> Eq for OrderedTerm<V, O> {}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Polynomial<R: Ring = i32, V: Variable = Var, O: Order = Lex> {
@@ -415,8 +362,6 @@ where
 #[cfg(test)]
 mod tests {
     use std::{cmp::Ordering, str::FromStr};
-
-    use crate::order::Var;
 
     use super::*;
 

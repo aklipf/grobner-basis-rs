@@ -2,7 +2,7 @@ use std::{borrow::Borrow, marker::PhantomData};
 
 use itertools::EitherOrBoth;
 
-use crate::term::Variable;
+use crate::variable::Variable;
 
 pub trait AddExponents<V: Variable, T: Borrow<(V, usize)>, U: Borrow<(V, usize)>>:
     Iterator<Item = EitherOrBoth<T, U>> + Sized

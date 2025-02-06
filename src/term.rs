@@ -1,11 +1,11 @@
 use std::fmt::{Debug, Display};
 use std::ops::{Div, Mul};
 
+use crate::variable::Variable;
+
 use super::exponent::{AddExponents, MaxExponents, SubExponents};
 
 use super::join::JoinTerms;
-
-pub trait Variable: Copy + Clone + Display + PartialEq + Eq + Ord {}
 
 pub trait Degree {
     fn deg(&self) -> usize;

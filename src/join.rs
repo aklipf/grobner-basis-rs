@@ -2,7 +2,7 @@ use std::{borrow::Borrow, cmp::Ordering, iter::Peekable, marker::PhantomData};
 
 use itertools::EitherOrBoth;
 
-use crate::term::Variable;
+use crate::variable::Variable;
 
 pub trait JoinTerms<V: Variable, T: Borrow<(V, usize)>>: Iterator<Item = T> + Sized {
     fn join_terms<I: Iterator<Item = U>, U: Borrow<(V, usize)>>(

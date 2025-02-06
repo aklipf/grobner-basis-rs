@@ -10,9 +10,10 @@ pub struct Monomial<R: Ring, V: Variable> {
     pub term: Term<V>,
 }
 
+use crate::variable::Variable;
 use crate::{
     ring::{Ring, Z},
-    term::{Term, Variable},
+    term::Term,
 };
 
 impl<const N: usize, T, V> Mul<Term<V>> for Z<N, T>

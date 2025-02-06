@@ -1,5 +1,3 @@
-#![feature(fn_traits)]
-
 pub mod exponent;
 pub mod join;
 pub mod monomial;
@@ -8,3 +6,4 @@ pub mod parser;
 pub mod polynomial;
 pub mod ring;
 pub mod term;
+pub mod variable;

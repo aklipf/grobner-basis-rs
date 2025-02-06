@@ -1,83 +1,8 @@
-use std::{
-    cmp::Ordering,
-    fmt::{self, Display},
-    ops::Deref,
-    str::FromStr,
-};
+use std::{cmp::Ordering, marker::PhantomData, ops::Deref};
 
 use itertools::EitherOrBoth;
 
-use crate::{
-    join::JoinTerms,
-    term::{Term, Variable},
-};
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Var(pub usize);
-
-pub fn var(idx: usize) -> Var {
-    Var(idx)
-}
-
-impl FromStr for Var {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let var = s.chars().next().ok_or("Cannot parse variable")?;
-        let var_id = (var as usize) - 0x61;
-        if var_id < 26 {
-            Ok(Var(var_id))
-        } else {
-            Err("Cannot parse variable".to_owned())
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! var {
-    ( x ) => {
-        Var(23)
-    };
-    ( y ) => {
-        Var(24)
-    };
-    ( z ) => {
-        Var(25)
-    };
-}
-
-#[allow(dead_code)]
-fn number_to_subscript(c: char) -> char {
-    match c {
-        '0' => '\u{2080}',
-        '1' => '\u{2081}',
-        '2' => '\u{2082}',
-        '3' => '\u{2083}',
-        '4' => '\u{2084}',
-        '5' => '\u{2085}',
-        '6' => '\u{2086}',
-        '7' => '\u{2087}',
-        '8' => '\u{2088}',
-        '9' => '\u{2089}',
-        _ => std::char::REPLACEMENT_CHARACTER,
-    }
-}
-
-impl Display for Var {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut current = (self.0 + 1) as u32;
-        let mut encoded = "".to_string();
-
-        while current > 0 {
-            let r = (current - 1) % 26;
-            current = (current - 1) / 26;
-            encoded.push(unsafe { std::char::from_u32_unchecked(r + 0x61) });
-        }
-        write!(f, "{}", encoded.chars().rev().collect::<String>())
-    }
-}
-
-impl Variable for Var {}
+use crate::{join::JoinTerms, term::Term, variable::Variable};
 
 pub trait Order {
     fn cmp<V: Variable>(a: &Term<V>, b: &Term<V>) -> Ordering;
@@ -119,21 +44,22 @@ fn lex_variables<V: Variable>(terms: EitherOrBoth<&(V, usize)>) -> Option<Orderi
 
 order_from_terms!(Lex, lex_variables);
 
-pub trait OrderCmp<V: Variable> {
-    fn cmp_order(terms: EitherOrBoth<&(V, usize)>) -> Option<Ordering>;
-}
-pub trait OldOrder:
-    Clone + Deref<Target = Term<Self::Var>> + From<Term<Self::Var>> + Ord + OrderCmp<Self::Var>
-{
-    type Var: Variable;
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OrderedTermOld<V: Variable> {
+#[derive(Debug)]
+pub struct OrderedTerm<V: Variable, O: Order> {
     terms: Term<V>,
+    cmp_fn: PhantomData<O>,
 }
 
-impl<V: Variable> Deref for OrderedTermOld<V> {
+impl<V: Variable, O: Order> Clone for OrderedTerm<V, O> {
+    fn clone(&self) -> Self {
+        Self {
+            terms: self.terms.clone(),
+            cmp_fn: PhantomData,
+        }
+    }
+}
+
+impl<V: Variable, O: Order> Deref for OrderedTerm<V, O> {
     type Target = Term<V>;
 
     fn deref(&self) -> &Self::Target {
@@ -141,61 +67,40 @@ impl<V: Variable> Deref for OrderedTermOld<V> {
     }
 }
 
-impl<V: Variable> From<Term<V>> for OrderedTermOld<V> {
+impl<V: Variable, O: Order> From<Term<V>> for OrderedTerm<V, O> {
     fn from(value: Term<V>) -> Self {
-        OrderedTermOld { terms: value }
-    }
-}
-
-impl<V: Variable> Ord for OrderedTermOld<V>
-where
-    Self: OrderCmp<V>,
-{
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.terms
-            .exps
-            .iter()
-            .join_terms(other.terms.exps.iter())
-            .find_map(Self::cmp_order)
-            .unwrap_or(Ordering::Equal)
-    }
-}
-
-impl<V: Variable> PartialOrd for OrderedTermOld<V>
-where
-    Self: OrderCmp<V>,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-pub type LexOld<V> = OrderedTermOld<V>;
-
-impl<V: Variable> OldOrder for LexOld<V> {
-    type Var = V;
-}
-
-impl<V: Variable> OrderCmp<V> for LexOld<V> {
-    fn cmp_order(terms: EitherOrBoth<&(V, usize)>) -> Option<Ordering> {
-        match terms {
-            EitherOrBoth::Both(&(_, left), &(_, right)) => {
-                if left < right {
-                    Some(Ordering::Less)
-                } else if left > right {
-                    Some(Ordering::Greater)
-                } else {
-                    None
-                }
-            }
-            EitherOrBoth::Left(_) => Some(Ordering::Greater),
-            EitherOrBoth::Right(_) => Some(Ordering::Less),
+        OrderedTerm {
+            terms: value,
+            cmp_fn: PhantomData,
         }
     }
 }
 
+impl<V: Variable, O: Order> Ord for OrderedTerm<V, O> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        O::cmp(&self.terms, &other.terms)
+    }
+}
+
+impl<V: Variable, O: Order> PartialOrd for OrderedTerm<V, O> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<V: Variable, O: Order> PartialEq for OrderedTerm<V, O> {
+    fn eq(&self, other: &Self) -> bool {
+        O::cmp(&self.terms, &other.terms) == Ordering::Equal
+    }
+}
+
+impl<V: Variable, O: Order> Eq for OrderedTerm<V, O> {}
+
 #[cfg(test)]
 mod tests {
+    use crate::variable::Var;
+    use std::str::FromStr;
+
     use super::*;
 
     fn take_order<O: Order>() {}
