@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
+use std::default;
 use std::ops::{Div, Mul, Rem};
+
+use num::{One, Zero};
 
 use crate::monomial::Monomial;
 use crate::order::{Lex, Order, OrderedTerm};
@@ -13,6 +16,31 @@ use super::ring::Ring;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Polynomial<R: Ring = i32, V: Variable = Var, O: Order = Lex> {
     pub(crate) monomials: BTreeMap<OrderedTerm<V, O>, R>,
+}
+
+impl<R: Ring, V: Variable, O: Order> One for Polynomial<R, V, O> {
+    fn one() -> Self {
+        [Term::<V>::default() * R::one()].into_iter().collect()
+    }
+
+    fn is_one(&self) -> bool {
+        if self.monomials.len() == 1 {
+            let (term, coeff) = self.monomials.first_key_value().unwrap();
+            term.exps.is_empty() && coeff.is_one()
+        } else {
+            false
+        }
+    }
+}
+
+impl<R: Ring, V: Variable, O: Order> Zero for Polynomial<R, V, O> {
+    fn zero() -> Self {
+        Default::default()
+    }
+
+    fn is_zero(&self) -> bool {
+        self.monomials.is_empty()
+    }
 }
 
 impl<R: Ring, V: Variable, O: Order> Clone for Polynomial<R, V, O> {
@@ -194,18 +222,36 @@ where
         }
     }
 
-    reduced(g)
+    g.sort_by(|left, right| O::cmp(&left.lead_term(), &right.lead_term()).reverse());
+    reduce(g)
 }
 
-fn reduced<R: Ring, V: Variable, O: Order>(
+fn reduce<R: Ring, V: Variable, O: Order>(
     polys: Vec<Polynomial<R, V, O>>,
 ) -> Vec<Polynomial<R, V, O>>
 where
     R: Rem<R, Output = R> + Div<R, Output = R>,
     Term<V>: Mul<R, Output = Monomial<R, V>>,
 {
-    //polys.sort_by(|left, right| left.lead_term().cmp(right.lead_term()));
-    polys
+    let mut reduced: Vec<Polynomial<R, V, O>> = Default::default();
+
+    for (i, f_i) in polys.iter().enumerate() {
+        let mut reminder = f_i.clone();
+        for f_j in polys[(i + 1)..].iter() {
+            (_, reminder) = reminder / f_j;
+        }
+
+        for f_j in reduced.iter() {
+            (_, reminder) = reminder / f_j;
+        }
+
+        if !reminder.is_zero() {
+            reduced.push(reminder);
+        }
+    }
+
+    reduced.sort_by(|left, right| O::cmp(&left.lead_term(), &right.lead_term()).reverse());
+    reduced
 }
 
 #[cfg(test)]
