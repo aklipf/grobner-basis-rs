@@ -4,6 +4,12 @@ use std::str::FromStr;
 
 use num::{Integer, One, Zero};
 
+use crate::{
+    monomial::{mul_ring_mono, mul_ring_term, Monomial},
+    term::Term,
+    variable::Variable,
+};
+
 pub trait Ring:
     Add<Self, Output = Self>
     + Sub<Output = Self>
@@ -39,6 +45,53 @@ pub trait Mod<T: Integer> {
     const N: T;
 }
 
+#[macro_export]
+macro_rules! impl_ring_term_mul {
+    ($ring:tt) => {
+        impl<V: Variable> Mul<Term<V>> for $ring {
+            type Output = Monomial<$ring, V>;
+
+            #[inline]
+            fn mul(self, rhs: Term<V>) -> Self::Output {
+                mul_ring_term(self, rhs)
+            }
+        }
+
+        impl<V: Variable> Mul<&Term<V>> for $ring {
+            type Output = Monomial<$ring, V>;
+
+            #[inline]
+            fn mul(self, rhs: &Term<V>) -> Self::Output {
+                mul_ring_term(self, rhs.clone())
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_ring_mono_mul {
+    ($ring:tt) => {
+        impl<V: Variable> Mul<Monomial<$ring, V>> for $ring {
+            type Output = Monomial<$ring, V>;
+
+            #[inline]
+            fn mul(self, rhs: Monomial<$ring, V>) -> Self::Output {
+                mul_ring_mono(self, rhs)
+            }
+        }
+
+        impl<V: Variable> Mul<&Monomial<$ring, V>> for $ring {
+            type Output = Monomial<$ring, V>;
+
+            #[inline]
+            fn mul(self, rhs: &Monomial<$ring, V>) -> Self::Output {
+                mul_ring_mono(self, rhs.clone())
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! static_finit_ring {
     ( $name:ident($mod:literal:$type:tt )) => {
         #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -137,6 +190,9 @@ macro_rules! static_finit_ring {
                 Self((self.0 * rhs.0) % Self::N)
             }
         }
+
+        impl_ring_term_mul!($name);
+        impl_ring_mono_mul!($name);
     };
 }
 

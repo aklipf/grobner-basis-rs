@@ -1,8 +1,4 @@
-use std::borrow::Borrow;
 use std::fmt::Debug;
-use std::ops::{Add, Mul, Rem, Sub};
-
-use num::{One, Zero};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Monomial<R: Ring, V: Variable> {
@@ -13,47 +9,43 @@ pub struct Monomial<R: Ring, V: Variable> {
 use crate::variable::Variable;
 use crate::{ring::Ring, term::Term};
 
-/*impl<R: Ring, V: Variable> Mul<Term<V>> for R {
-    type Output = Monomial<R, V>;
-
-    fn mul(self, rhs: Term<V>) -> Self::Output {
-        Monomial {
-            coeff: self,
-            term: rhs,
-        }
-    }
-}*/
-
-impl<R: Ring, V: Variable> Mul<R> for Term<V> {
-    type Output = Monomial<R, V>;
-
-    fn mul(self, rhs: R) -> Self::Output {
-        Monomial {
-            coeff: rhs,
-            term: self,
-        }
+#[inline]
+pub(crate) fn mul_ring_term<R: Ring, V: Variable>(left: R, right: Term<V>) -> Monomial<R, V> {
+    Monomial {
+        coeff: left,
+        term: right,
     }
 }
 
-impl<'a, R: Ring, V: Variable> Mul<R> for &'a Term<V> {
-    type Output = Monomial<R, V>;
-
-    fn mul(self, rhs: R) -> Self::Output {
-        Monomial {
-            coeff: rhs,
-            term: self.clone(),
-        }
+#[inline]
+pub(crate) fn mul_ring_mono<R: Ring, V: Variable>(
+    left: R,
+    right: Monomial<R, V>,
+) -> Monomial<R, V> {
+    Monomial {
+        coeff: left * right.coeff,
+        term: right.term,
     }
 }
 
-impl<R: Ring, V: Variable, T: Borrow<Monomial<R, V>>> Mul<T> for Monomial<R, V> {
-    type Output = Self;
+#[inline]
+pub(crate) fn mul_term_mono<R: Ring, V: Variable>(
+    left: Term<V>,
+    right: Monomial<R, V>,
+) -> Monomial<R, V> {
+    Monomial {
+        coeff: right.coeff,
+        term: left * right.term,
+    }
+}
 
-    fn mul(self, rhs: T) -> Self::Output {
-        let right: &Monomial<R, V> = rhs.borrow();
-        Monomial {
-            coeff: self.coeff * right.coeff,
-            term: self.term * &right.term,
-        }
+#[inline]
+pub(crate) fn mul_mono_mono<R: Ring, V: Variable>(
+    left: &Monomial<R, V>,
+    right: &Monomial<R, V>,
+) -> Monomial<R, V> {
+    Monomial {
+        coeff: left.coeff * right.coeff,
+        term: &left.term * &right.term,
     }
 }
