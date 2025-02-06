@@ -32,6 +32,13 @@ where
 
             terms.push((var, exp));
         }
+
+        for ((x, _), (y, _)) in terms.iter().skip(1).zip(terms.iter()) {
+            if x <= y {
+                return Err("Invalid term".to_owned());
+            }
+        }
+
         Ok(Term { exps: terms })
     }
 }

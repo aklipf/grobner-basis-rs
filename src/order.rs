@@ -2,7 +2,11 @@ use std::{cmp::Ordering, marker::PhantomData, ops::Deref};
 
 use itertools::EitherOrBoth;
 
-use crate::{join::JoinTerms, term::Term, variable::Variable};
+use crate::{
+    join::JoinTerms,
+    term::{Degree, Term},
+    variable::Variable,
+};
 
 pub trait Order {
     fn cmp<V: Variable>(a: &Term<V>, b: &Term<V>) -> Ordering;
@@ -43,6 +47,18 @@ fn lex_variables<V: Variable>(terms: EitherOrBoth<&(V, usize)>) -> Option<Orderi
 }
 
 order_from_terms!(Lex, lex_variables);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct GradLex {}
+
+impl Order for GradLex {
+    fn cmp<V: Variable>(left: &Term<V>, right: &Term<V>) -> std::cmp::Ordering {
+        match left.deg().cmp(&right.deg()) {
+            Ordering::Equal => Lex::cmp(left, right),
+            c => c,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct OrderedTerm<V: Variable, O: Order> {

@@ -1,7 +1,7 @@
 use core::fmt;
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Debug, fmt::Display, str::FromStr};
 
-pub trait Variable: Copy + Clone + Display + PartialEq + Eq + Ord {}
+pub trait Variable: Copy + Clone + Debug + Display + PartialEq + Eq + Ord {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Var(pub usize);

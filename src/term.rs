@@ -15,7 +15,7 @@ pub struct Term<V: Variable>
 where
     (V, usize): Ord,
 {
-    pub exps: Vec<(V, usize)>,
+    pub(crate) exps: Vec<(V, usize)>,
 }
 
 impl<V: Variable> Default for Term<V> {

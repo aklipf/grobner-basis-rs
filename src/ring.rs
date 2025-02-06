@@ -19,6 +19,7 @@ pub trait Ring:
     + Zero<Output = Self>
     + Copy
     + Debug
+    + Display
     + PartialEq
     + Eq
     + Sized
@@ -34,6 +35,7 @@ impl<
             + Zero<Output = Self>
             + Copy
             + Debug
+            + Display
             + PartialEq
             + Eq
             + Sized,
