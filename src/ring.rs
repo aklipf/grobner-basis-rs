@@ -1,7 +1,8 @@
-use std::fmt::Debug;
-use std::ops::{Add, Deref, Mul, Neg, Rem, Sub};
+use std::fmt::{Debug, Display};
+use std::ops::{Add, Deref, Mul, Neg, Sub};
+use std::str::FromStr;
 
-use num_traits::{One, Zero};
+use num::{Integer, One, Zero};
 
 pub trait Ring:
     Add<Self, Output = Self>
@@ -34,248 +35,139 @@ impl<
 {
 }
 
-pub trait Finite<const N: usize>: Ring {}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Z<const N: usize, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    value: T,
+pub trait Mod<T: Integer> {
+    const N: T;
 }
 
-pub type Z2 = Z<2, usize>;
+macro_rules! static_finit_ring {
+    ( $name:ident($mod:literal:$type:tt )) => {
+        #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+        pub struct $name($type);
 
-impl<const N: usize, T> Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    fn module() -> T {
-        T::from(N)
-    }
-}
-
-impl<const N: usize, T> Deref for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<const N: usize, T> From<usize> for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    fn from(value: usize) -> Self {
-        Self {
-            value: T::from(value),
+        impl Mod<$type> for $name {
+            const N: $type = $mod;
         }
-    }
-}
 
-impl<const N: usize, T> Zero for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    fn zero() -> Self {
-        Self { value: T::zero() }
-    }
+        impl FromStr for $name {
+            type Err = String;
 
-    fn is_zero(&self) -> bool {
-        self.value.is_zero()
-    }
-}
-
-impl<const N: usize, T> One for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + PartialEq
-        + Default
-        + Copy,
-{
-    fn one() -> Self {
-        Self { value: T::one() }
-    }
-
-    fn is_one(&self) -> bool {
-        self.value.is_one()
-    }
-}
-
-impl<const N: usize, T> Mul<Self> for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self {
-            value: (self.value * rhs.value) % Self::module(),
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                if let Ok(value) = s.parse::<$type>() {
+                    if value < $name::N {
+                        return Ok($name(value));
+                    }
+                }
+                Err("Invalid ring value".to_owned())
+            }
         }
-    }
-}
 
-impl<const N: usize, T> Add<Self> for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = Self;
+        impl Deref for $name {
+            type Target = $type;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            value: (self.value + rhs.value) % Self::module(),
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
         }
-    }
-}
 
-impl<const N: usize, T> Sub<Self> for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self.add(rhs.neg())
-    }
-}
-
-impl<const N: usize, T> Neg for Z<N, T>
-where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self {
-            value: Self::module() - self.value,
+        impl Into<$type> for $name {
+            fn into(self) -> $type {
+                self.0
+            }
         }
-    }
+
+        impl Display for $name {
+            #[inline]
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl Zero for $name {
+            fn zero() -> Self {
+                Self($type::zero())
+            }
+
+            fn is_zero(&self) -> bool {
+                self.0.is_zero()
+            }
+        }
+
+        impl One for $name {
+            fn one() -> Self {
+                Self($type::one())
+            }
+
+            fn is_one(&self) -> bool {
+                self.0.is_one()
+            }
+        }
+
+        impl Add<$name> for $name {
+            type Output = $name;
+
+            #[inline]
+            fn add(self, rhs: $name) -> Self::Output {
+                Self((self.0 + rhs.0) % Self::N)
+            }
+        }
+
+        impl Neg for $name {
+            type Output = $name;
+
+            #[inline]
+            fn neg(self) -> Self::Output {
+                Self(Self::N - self.0)
+            }
+        }
+
+        impl Sub<$name> for $name {
+            type Output = $name;
+
+            #[inline]
+            fn sub(self, rhs: $name) -> Self::Output {
+                self.add(rhs.neg())
+            }
+        }
+
+        impl Mul<$name> for $name {
+            type Output = $name;
+
+            #[inline]
+            fn mul(self, rhs: $name) -> Self::Output {
+                Self((self.0 * rhs.0) % Self::N)
+            }
+        }
+    };
 }
 
-impl<const N: usize, T> Finite<N> for Z<N, T> where
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + PartialEq
-        + Debug
-        + Default
-        + PartialEq
-        + Eq
-        + Copy
-{
-}
+static_finit_ring!(Z2(2:u32));
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    static_finit_ring!(Z5(5:u32));
+
     #[test]
     fn finit_ring() {
-        assert_eq!(Z::<5, usize>::module(), 5);
-        assert_eq!(*Z::<5, usize>::from(3), 3);
+        assert_eq!(Z5::N, 5);
 
-        assert_eq!(*Z::<5, usize>::one(), 1);
-        assert!(Z::<5, usize>::one().is_one());
-        assert!(!Z::<5, usize>::one().is_zero());
-        assert_eq!(*Z::<5, usize>::zero(), 0);
-        assert!(Z::<5, usize>::zero().is_zero());
-        assert!(!Z::<5, usize>::one().is_zero());
+        assert_eq!(Z5::one(), Z5(1));
+        assert!(Z5::one().is_one());
+        assert!(!Z5::one().is_zero());
+        assert_eq!(Z5::zero(), Z5(0));
+        assert!(Z5::zero().is_zero());
+        assert!(!Z5::one().is_zero());
 
-        assert_eq!(*Z::<5, usize>::from(3).neg(), 2);
+        assert_eq!(*-Z5(3), 2);
 
-        assert_eq!(*Z::<5, usize>::from(3).add(Z::<5, usize>::from(4)), 2);
+        assert_eq!(*(Z5(3) + Z5(4)), 2);
 
-        assert_eq!(*Z::<5, usize>::from(3).sub(Z::<5, usize>::from(4)), 4);
-        assert_eq!(*Z::<5, usize>::from(4).sub(Z::<5, usize>::from(3)), 1);
+        assert_eq!(*(Z5(3) - Z5(4)), 4);
+        assert_eq!(*(Z5(4) - Z5(3)), 1);
 
-        assert_eq!(*Z::<5, usize>::from(4).mul(Z::<5, usize>::from(3)), 2);
-        assert_eq!(*Z::<5, usize>::from(2).mul(Z::<5, usize>::from(3)), 1);
-        assert_eq!(*Z::<5, usize>::from(2).mul(Z::<5, usize>::from(2)), 4);
+        assert_eq!(*(Z5(4) * Z5(3)), 2);
+        assert_eq!(*(Z5(2) * Z5(3)), 1);
+        assert_eq!(*(Z5(2) * Z5(2)), 4);
     }
 }

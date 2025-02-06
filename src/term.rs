@@ -90,6 +90,35 @@ impl<V: Variable> Degree for Term<V> {
     }
 }
 
+#[inline]
+pub(crate) fn mul_term_term<V: Variable>(left: &Term<V>, right: &Term<V>) -> Term<V> {
+    left.exps
+        .iter()
+        .join_terms(right.exps.iter())
+        .add_exponents()
+        .collect()
+}
+
+#[inline]
+pub(crate) fn div_term_term<V: Variable>(left: &Term<V>, right: &Term<V>) -> Option<Term<V>> {
+    left.exps
+        .iter()
+        .join_terms(right.exps.iter())
+        .sub_exponents()
+        .collect::<Result<Term<V>, String>>()
+        .ok()
+}
+
+pub fn lcm<V: Variable>(left: &Term<V>, right: &Term<V>) -> Term<V> {
+    left.exps
+        .iter()
+        .join_terms(right.exps.iter())
+        .max_exponents()
+        .collect()
+}
+
+// move ops after this
+
 impl<V: Variable> Mul<Term<V>> for Term<V> {
     type Output = Self;
 
@@ -150,12 +179,4 @@ impl<'a, 'b, V: Variable> Div<&'b Term<V>> for &'a Term<V> {
             .collect::<Result<Term<V>, String>>()
             .expect("Division error")
     }
-}
-
-pub fn lcm<V: Variable>(left: &Term<V>, right: &Term<V>) -> Term<V> {
-    left.exps
-        .iter()
-        .join_terms(right.exps.iter())
-        .max_exponents()
-        .collect()
 }

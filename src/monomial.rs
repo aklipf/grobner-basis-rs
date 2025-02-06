@@ -11,26 +11,10 @@ pub struct Monomial<R: Ring, V: Variable> {
 }
 
 use crate::variable::Variable;
-use crate::{
-    ring::{Ring, Z},
-    term::Term,
-};
+use crate::{ring::Ring, term::Term};
 
-impl<const N: usize, T, V> Mul<Term<V>> for Z<N, T>
-where
-    V: Variable,
-    Z<N, T>: Ring,
-    T: Rem<T, Output = T>
-        + Mul<T, Output = T>
-        + Add<T, Output = T>
-        + Sub<Output = T>
-        + From<usize>
-        + Zero
-        + One
-        + Default
-        + Copy,
-{
-    type Output = Monomial<Z<N, T>, V>;
+/*impl<R: Ring, V: Variable> Mul<Term<V>> for R {
+    type Output = Monomial<R, V>;
 
     fn mul(self, rhs: Term<V>) -> Self::Output {
         Monomial {
@@ -38,7 +22,7 @@ where
             term: rhs,
         }
     }
-}
+}*/
 
 impl<R: Ring, V: Variable> Mul<R> for Term<V> {
     type Output = Monomial<R, V>;

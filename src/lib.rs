@@ -1,6 +1,7 @@
 pub mod exponent;
 pub mod join;
 pub mod monomial;
+pub mod ops;
 pub mod order;
 pub mod parser;
 pub mod polynomial;
