@@ -1,26 +1,13 @@
-use std::{cmp::Ordering, str::FromStr};
+use std::str::FromStr;
 
 use grobner_basis::{
-    order::{GradLex, Lex, Order},
-    polynomial::{buchberger, HeadMonomial, Polynomial},
+    order::{GradLex, Lex},
+    polynomial::{buchberger, Polynomial},
     variable::Var,
 };
 use std::time::Instant;
 
 fn main() {
-    let f: Polynomial<i32, Var> = Polynomial::from_str("x^2+-3xy+2x^2y^3+y^2+2").unwrap();
-    let g: Polynomial<i32, Var> = Polynomial::from_str("x+xy+x^2y+x^2+1").unwrap();
-
-    println!("f={f}");
-    println!("g={g}");
-
-    let (q, r) = f / &g;
-
-    println!("{}", q.clone() * g.clone() + r.clone());
-
-    println!("q={q}");
-    println!("r={r}");
-
     let input: Vec<Polynomial<i32, Var, Lex>> = vec![
         Polynomial::from_str("x^2+-y").unwrap(),
         Polynomial::from_str("x^3+-z").unwrap(),
